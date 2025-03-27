@@ -74,7 +74,7 @@ train_dataset = RoadSegmentationDF(data = df["train"],transform=transform)
 for i,m in train_dataset:
     break
 
-train_loader = DataLoader(train_dataset,batch_size=8,shuffle=True)
+train_loader = DataLoader(train_dataset,batch_size=16,shuffle=True)
 for i_,m_ in train_loader:
     break
 
@@ -89,31 +89,41 @@ class RoadSegmentationModel(nn.Module):
                                             features_only = True)
 #        self.encoder = nn.Sequential(*list(self.base_model.children())[:-2])
         
-        self.upscale = nn.ConvTranspose2d(2048, 1024, kernel_size=4,
-                                          stride = 2,padding=1)
-        self.upscale2 = nn.ConvTranspose2d(1024 , 512, kernel_size = 4,
-                                           stride = 2,padding = 1)
-        self.upscale3 = nn.ConvTranspose2d(512, 256, kernel_size = 4,
-                                           stride = 2,padding = 1)
-        self.upscale4 = nn.ConvTranspose2d(256, 128, kernel_size = 4,
-                                           stride = 2,padding = 1)
-        self.upscale5 = nn.ConvTranspose2d(128, 1, kernel_size = 4,
-                                           stride = 2,padding = 1)
-        self.sigmoid = nn.Sigmoid()
+        self.upscale1 = nn.Sequential(
+            nn.ConvTranspose2d(2048 , 1024, kernel_size=4,stride = 2,padding=1),
+            nn.BatchNorm2d(1024),
+            nn.ReLU(inplace = True))
+        
+        self.upscale2 = nn.Sequential(
+            nn.ConvTranspose2d(1024 , 512, kernel_size=4,stride = 2,padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace = True))
+        
+        self.upscale3 = nn.Sequential(
+            nn.ConvTranspose2d(512 , 256, kernel_size=4,stride = 2,padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace = True))
+        
+        self.upscale4 = nn.Sequential(
+            nn.ConvTranspose2d(256 , 128, kernel_size=4,stride = 2,padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace = True))
+        
+        self.upscale5 = nn.ConvTranspose2d(128 , 1, kernel_size=4,stride = 2,padding=1)
+    
         
     def forward(self,x):
- #      x = self.encoder(x)
         x = self.base_model(x)[-1]
-        x = self.upscale(x)
-        x = self.upscale2(x)
-        x  =self.upscale3(x)
+        x = self.upscale1(x)        
+        x = self.upscale2(x)      
+        x = self.upscale3(x)      
         x = self.upscale4(x)
         x = self.upscale5(x)
-        x = self.sigmoid(x) 
+        
         return x
     
 model = RoadSegmentationModel().to(device)
-summary(model,input_size = (8,3,256,256))
+summary(model,input_size = (16,3,256,256))
 
 # Contructing the Training loop
 
@@ -137,7 +147,7 @@ for epoch in range(EPOCHS):
     train_losses.append(train_loss)
     print(f"EPOCH: [{epoch+1}/{epoch}] , LOSS: [{train_loss:.4f}]")
         
-torch.save(model.state_dict(),"rs1(low).pth")  
+torch.save(model.state_dict(),"rs1(high).pth")  
 
   
     
