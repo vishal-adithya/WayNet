@@ -19,49 +19,7 @@ import albumentations as alb
 from PIL import Image
 from torchvision import transforms
 from torchinfo import summary
-
-
-class RoadSegmentationModel(nn.Module):
-    
-    def __init__(self):
-        super(RoadSegmentationModel,self).__init__()
-        
-        self.base_model = timm.create_model('resnet50', pretrained=True,
-                                            features_only = True)
-#        self.encoder = nn.Sequential(*list(self.base_model.children())[:-2])
-        
-        self.upscale1 = nn.Sequential(
-            nn.ConvTranspose2d(2048 , 1024, kernel_size=4,stride = 2,padding=1),
-            nn.BatchNorm2d(1024),
-            nn.ReLU(inplace = True))
-        
-        self.upscale2 = nn.Sequential(
-            nn.ConvTranspose2d(1024 , 512, kernel_size=4,stride = 2,padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace = True))
-        
-        self.upscale3 = nn.Sequential(
-            nn.ConvTranspose2d(512 , 256, kernel_size=4,stride = 2,padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace = True))
-        
-        self.upscale4 = nn.Sequential(
-            nn.ConvTranspose2d(256 , 128, kernel_size=4,stride = 2,padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace = True))
-        
-        self.upscale5 = nn.ConvTranspose2d(128 , 1, kernel_size=4,stride = 2,padding=1)
-    
-        
-    def forward(self,x):
-        x = self.base_model(x)[-1]
-        x = self.upscale1(x)        
-        x = self.upscale2(x)      
-        x = self.upscale3(x)      
-        x = self.upscale4(x)
-        x = self.upscale5(x)
-        
-        return x
+from utils import RoadSegmentationModel
     
     
 model = RoadSegmentationModel()
@@ -78,8 +36,8 @@ def Preprocess(x):
     x = x.unsqueeze(0)
     return x
 
-img = "test_img2.jpg"
-img = Preprocess(img)
+img_path = "test_img2.jpg"
+img = Preprocess(img_path)
 device = torch.device(("mps"))
 model.to(device)
 img = img.to(device)
@@ -87,20 +45,6 @@ img = img.to(device)
 with torch.no_grad():
     out = model(img)
 yhat = out.squeeze().cpu().numpy()
-threshold = 0.5  # Adjust as needed
-binary_mask = (yhat > threshold).astype(np.uint8) * 255
-y = cv2.imread("test_img.jpg",cv2.IMREAD_COLOR_RGB)
-
-plt.figure(figsize=(10, 5))
-plt.subplot(1, 2, 1)
-plt.title("Original Image")
-plt.imshow(y, cmap="gray")
-
-plt.subplot(1, 2, 2)
-plt.title("Predicted Mask")
-plt.imshow(binary_mask, cmap="gray")
-
-plt.show()
 
 def overlay_mask(image_path, mask, alpha=0.5):
     image = cv2.imread(image_path)
@@ -118,10 +62,13 @@ def overlay_mask(image_path, mask, alpha=0.5):
 
 
 segmentation_overlay = overlay_mask("test_img2.jpg", yhat)
-
-
+y = cv2.imread(img_path,cv2.COLOR_BGR2RGB)
+y = cv2.resize(img,(256,256))
 plt.figure(figsize=(10, 5))
-plt.imshow(segmentation_overlay)
-plt.axis("off")
-plt.title("Segmentation Overlay")
-plt.show()
+plt.subplot(1, 2, 1)
+plt.title("Original Image")
+plt.imshow(y, cmap="gray")
+
+plt.subplot(1, 2, 2)
+plt.title("Predicted Mask")
+plt.imshow(segmentation_overlay, cmap="gray")
